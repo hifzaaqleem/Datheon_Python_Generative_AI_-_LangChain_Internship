@@ -1,0 +1,18 @@
+# Tested-against ranges; pin exact versions in production.
+langchain-core>=0.3,<2
+langchain-community>=0.3,<1
+langchain-text-splitters>=0.3,<2
+langchain-chroma>=0.2,<2
+chromadb>=0.5,<2
+pypdf>=4.0
+cryptography>=41      # needed by pypdf to read AES-encrypted PDFs
+reportlab>=4.0            # only for generate_synthetic_data.py
+pytest>=8.0
+streamlit>=1.35        # web UI (app.py)
+python-dotenv>=1.0     # reads API keys from a .env file
+# Embeddings (free, local) / LLM (install what you use):
+langchain-huggingface>=0.1     # default embeddings (all-MiniLM-L6-v2, runs locally)
+sentence-transformers>=3.0
+# Free LLM options (install the one you use):
+langchain-ollama>=0.2          # --llm ollama  (local, free, needs Ollama installed)
+langchain-google-genai>=2.0  # --llm gemini  (free API key, GOOGLE_API_KEY)

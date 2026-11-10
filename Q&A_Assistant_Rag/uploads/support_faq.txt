@@ -1,0 +1,15 @@
+Nimbus Robotics Customer Support FAQ
+
+Returns
+Products may be returned within 45 days of delivery if they are unused and in the original packaging.
+Refunds are issued to the original payment method within 10 business days after the return is inspected.
+
+Support hours
+Customer support is available Monday to Friday, from 08:00 to 18:00 CET.
+Support is closed on Portuguese public holidays.
+
+Contact
+For urgent robot faults call +351 210 000 000. For all other requests write to support@nimbus-robotics.example.
+
+Escalation
+If a ticket receives no reply within 2 business days it is automatically escalated to a senior engineer.

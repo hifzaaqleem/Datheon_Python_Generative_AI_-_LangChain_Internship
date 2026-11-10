@@ -1,0 +1,1 @@
+Project notes: Multi-tool agent uses LangChain create_agent, DuckDuckGo search, safe calculator, and file reader. Built Nov 2026.
