@@ -12,8 +12,8 @@ python generate_synthetic_data.py                       # creates ./synthetic_da
 python rag_pipeline.py --docs synthetic_data --embeddings hash --llm extractive --reset \
        -q "How many days of paid annual leave does a full-time employee get?"
 
-# 2) Real setup: local MiniLM embeddings + local Ollama model
-python rag_pipeline.py --docs ./my_pdfs --reset --llm ollama   # interactive prompt
+# 2) Real setup: local MiniLM embeddings + Gemini (GOOGLE_API_KEY in .env)
+python rag_pipeline.py --docs ./my_pdfs --reset --llm gemini   # interactive prompt
 
 # Tests
 pytest test_core.py -v                                    # pure logic, no heavy deps
@@ -26,17 +26,16 @@ GOOGLE_API_KEY=... pytest test_pipeline.py -v             # + injection / near-m
 streamlit run app.py          # or: uv run streamlit run app.py
 ```
 Upload PDFs in the sidebar, click **Process**, then chat. Pick the LLM/embeddings in the sidebar
-(`extractive` and `ollama` need no key). Answers show citations and an expandable "Retrieved passages" panel.
+(`extractive` needs no key; `gemini` reads GOOGLE_API_KEY from .env or Streamlit secrets). Answers show citations and an expandable "Retrieved passages" panel.
 Not executed in the build environment (Streamlit not installed there): syntax-checked only.
 
 ## Free setup
 Embeddings run locally for free. For the answer step pick one:
 ```bash
-python rag_pipeline.py --docs ./pdfs --reset --llm ollama --llm-model llama3.2   # local, free
 GOOGLE_API_KEY=... python rag_pipeline.py --docs ./pdfs --reset --llm gemini     # free API key
 python rag_pipeline.py --docs ./pdfs --reset --llm extractive                     # no model at all
 ```
-(The Gemini provider is untested here; model names and free limits change, use `--llm-model` to override.)
+(Default Gemini model: `gemini-3.5-flash-lite`. The Gemini provider is untested here; model names and free limits change, use `--llm-model` to override.)
 
 ## Files
 | File | Purpose |
