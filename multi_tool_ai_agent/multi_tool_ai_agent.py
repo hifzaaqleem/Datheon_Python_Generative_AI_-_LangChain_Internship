@@ -1,4 +1,3 @@
-
 """
 Multi-Tool Autonomous AI Agent
 LangChain Agent + Streamlit Dashboard
@@ -543,7 +542,7 @@ st.markdown(
     '''
     <h1 class="main-title">
         <span class="emoji">🤖</span>
-        <span class="title-text">Multi-Tool Autonomous Agent</span>
+        <span class="title-text">Multi-Tool Autonomous AI Agent</span>
     </h1>
     ''',
     unsafe_allow_html=True,
