@@ -88,11 +88,10 @@ st.markdown(
 
 # ----------------------------------------------------------------------------- pipeline cache
 @st.cache_resource(show_spinner="Loading models (first run downloads the embedding model)...")
-def get_pipeline(embeddings, embedding_model, llm, llm_model, chunk_size, overlap, top_k, threshold, _key_id,
-                 ollama_url=None):
+def get_pipeline(embeddings, embedding_model, llm, llm_model, chunk_size, overlap, top_k, threshold, _key_id):
     cfg = RAGConfig(db_dir=DB_DIR, chunk_size=chunk_size, chunk_overlap=overlap, top_k=top_k,
                     score_threshold=threshold, embeddings=embeddings, embedding_model=embedding_model or None,
-                    llm=llm, llm_model=llm_model or None, ollama_url=ollama_url or None)
+                    llm=llm, llm_model=llm_model or None)
     return RAGPipeline(cfg)
 
 
@@ -100,49 +99,8 @@ def get_pipeline(embeddings, embedding_model, llm, llm_model, chunk_size, overla
 st.sidebar.markdown("## 🧠 RAGify")
 st.sidebar.caption("Ask questions. Get answers with page citations.")
 st.sidebar.markdown("### ⚙️ Model")
-llm = st.sidebar.selectbox("Answer model (LLM)", ["extractive", "ollama", "gemini"],
-                           help="extractive = no model, returns matching sentences. ollama = free, local.")
-GEMINI_MODELS = ["gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-3.8-flash"]
-CUSTOM = "Other (type a name)…"
-
-llm_model = ""
-ollama_url = None
-if llm == "gemini":
-    choice = st.sidebar.selectbox("Gemini model", GEMINI_MODELS + [CUSTOM],
-                                  help="Model IDs change over time. Pick 'Other' to type a newer one.")
-    llm_model = st.sidebar.text_input("Custom Gemini model ID", placeholder="gemini-...") if choice == CUSTOM else choice
-elif llm == "ollama":
-    st.sidebar.info("Ollama only works when this app runs on the same computer as Ollama. "
-                    "If the app is hosted online (e.g. Streamlit Cloud), use Gemini instead.")
-    llm_model = st.sidebar.text_input("Ollama model name", value="llama3.2",
-                                      help="Must appear in `ollama list`.")
-    ollama_url = st.sidebar.text_input("Ollama server URL", value="http://127.0.0.1:11434",
-                                       help="Must be reachable from where this app runs. Test it in a browser.").strip()
-    if st.sidebar.button("🔌 Test Ollama connection", use_container_width=True):
-        import platform
-        import sys
-
-        import httpx
-        st.sidebar.caption(f"App runs on: {platform.system()} · {sys.executable}")
-        st.sidebar.caption(f"OLLAMA_HOST: {os.getenv('OLLAMA_HOST') or '(not set)'} · proxy vars: "
-                           f"{[k for k in ('HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY') if os.getenv(k) or os.getenv(k.lower())] or 'none'}")
-        seen, working = set(), None
-        for u in [ollama_url, "http://127.0.0.1:11434", "http://localhost:11434", "http://[::1]:11434"]:
-            u = (u or "").rstrip("/")
-            if not u or u in seen:
-                continue
-            seen.add(u)
-            try:
-                r = httpx.get(u + "/api/tags", timeout=4, trust_env=False)
-                names = [m.get("name") for m in r.json().get("models", [])]
-                st.sidebar.success(f"✅ {u}\nmodels: {', '.join(names) or 'none pulled'}")
-                working = working or u
-            except Exception as e:
-                st.sidebar.error(f"❌ {u}\n{type(e).__name__}: {e}")
-        if working and working != ollama_url.rstrip("/"):
-            st.sidebar.info(f"Put this in 'Ollama server URL': {working}")
-
-# The API key is never typed in the UI. Sources: .env file / environment variable, or Streamlit secrets (hosted).
+llm = st.sidebar.selectbox("Answer model (LLM)", ["gemini", "extractive"],
+                           help="gemini = free-tier API (key from .env / secrets). extractive = no model, returns matching sentences.")
 def _secret(name: str) -> str:
     try:
         return str(st.secrets.get(name, "") or "")
@@ -150,6 +108,16 @@ def _secret(name: str) -> str:
         return ""
 
 
+GEMINI_MODELS = ["gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-3.8-flash"]
+CUSTOM = "Other (type a name)…"
+
+llm_model = ""
+if llm == "gemini":
+    choice = st.sidebar.selectbox("Gemini model", GEMINI_MODELS + [CUSTOM],
+                                  help="Model IDs change over time. Pick 'Other' to type a newer one.")
+    llm_model = st.sidebar.text_input("Custom Gemini model ID", placeholder="gemini-...") if choice == CUSTOM else choice
+
+# The API key is never typed in the UI. Sources: .env file / environment variable, or Streamlit secrets (hosted).
 key = ""
 if llm == "gemini":
     key = (os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
@@ -172,7 +140,7 @@ with st.sidebar.expander("Advanced"):
 
 try:
     rag = get_pipeline(embeddings, None, llm, llm_model.strip(), int(chunk_size), int(overlap),
-                       int(top_k), float(threshold), bool(key), ollama_url)
+                       int(top_k), float(threshold), bool(key))
 except Exception as e:
     # compare by name: Streamlit hot-reloads modules, so the RAGError class can differ between reloads
     if isinstance(e, ValueError) or type(e).__name__ == "RAGError":
