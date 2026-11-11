@@ -142,9 +142,34 @@ st.markdown(
         letter-spacing: 0.5px;
     }
 
+    /* Force sidebar visible even if user collapsed it */
     section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+        background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%) !important;
         border-right: 1px solid rgba(148, 163, 184, 0.1);
+        transform: none !important;
+        margin-left: 0 !important;
+        width: 21rem !important;
+        min-width: 21rem !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    section[data-testid="stSidebar"][aria-expanded="false"] {
+        transform: none !important;
+        margin-left: 0 !important;
+        width: 21rem !important;
+        display: block !important;
+    }
+    /* Make the reopen control obvious if sidebar is collapsed */
+    [data-testid="stSidebarCollapsedControl"] {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        background: #3b82f6 !important;
+        color: white !important;
+        border-radius: 0 8px 8px 0 !important;
+        padding: 0.6rem !important;
+        z-index: 999999 !important;
     }
     .sidebar-header {
         font-size: 1.1rem;
@@ -220,13 +245,23 @@ except OSError:
     WORKSPACE.mkdir(parents=True, exist_ok=True)
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-# Support both common env var names for Google AI Studio key
-GEMINI_API_KEY = (
-    os.getenv("GOOGLE_API_KEY")
-    or os.getenv("GEMINI_API_KEY")
-    or os.getenv("GOOGLE_GENERATIVE_AI_API_KEY")
-    or ""
-).strip()
+# Support env vars and Streamlit Cloud secrets
+def _load_gemini_key() -> str:
+    for name in ("GOOGLE_API_KEY", "GEMINI_API_KEY", "GOOGLE_GENERATIVE_AI_API_KEY"):
+        val = os.getenv(name)
+        if val and val.strip():
+            return val.strip()
+    try:
+        # Streamlit Cloud: Settings → Secrets
+        for name in ("GOOGLE_API_KEY", "GEMINI_API_KEY", "GOOGLE_GENERATIVE_AI_API_KEY"):
+            if name in st.secrets and str(st.secrets[name]).strip():
+                return str(st.secrets[name]).strip()
+    except Exception:
+        pass
+    return ""
+
+
+GEMINI_API_KEY = _load_gemini_key()
 
 # Only these two models
 GEMINI_MODELS = [
@@ -468,15 +503,13 @@ if "agent" not in st.session_state:
 # ---------------------------------------------------------------------------
 # Sidebar (no API key field — key comes from .env only)
 # ---------------------------------------------------------------------------
+if "model_name" not in st.session_state:
+    st.session_state.model_name = GEMINI_MODELS[0]
+
 with st.sidebar:
     st.markdown('<div class="sidebar-header">⚙️ Configuration</div>', unsafe_allow_html=True)
-
-    model_name = st.selectbox(
-        "Gemini Model",
-        options=GEMINI_MODELS,
-        index=0,  # default: gemini-3.5-flash-lite
-        help="Default: gemini-3.5-flash-lite (fast). gemini-3.6-flash is stronger.",
-    )
+    st.caption(f"Model: `{st.session_state.model_name}`")
+    st.caption("Change model in main page → Settings")
 
     st.markdown("---")
     st.markdown('<div class="sidebar-header">🛠️ Available Tools</div>', unsafe_allow_html=True)
@@ -523,7 +556,7 @@ with st.sidebar:
     st.markdown("---")
     if GEMINI_API_KEY:
         st.markdown('<span class="status-ready">● Agent Ready (Gemini · .env)</span>', unsafe_allow_html=True)
-        st.caption(f"Key loaded · Model: `{model_name}`")
+        st.caption(f"Key loaded · Model: `{st.session_state.model_name}`")
     else:
         st.markdown('<span class="status-warn">○ Missing GOOGLE_API_KEY in .env</span>', unsafe_allow_html=True)
         st.info(
@@ -551,6 +584,28 @@ st.markdown(
     '<p class="subtitle">Reasons, picks tools, and solves research &amp; calculation queries. Powered by Gemini.</p>',
     unsafe_allow_html=True,
 )
+
+# Fallback controls in main area (always available if sidebar is hidden)
+with st.expander("⚙️ Settings (model & files) — open this if sidebar is missing", expanded=False):
+    st.selectbox(
+        "Gemini Model",
+        options=GEMINI_MODELS,
+        key="model_name",
+        help="Default: gemini-3.5-flash-lite",
+    )
+    uploaded_main = st.file_uploader(
+        "Upload a text file for the agent",
+        type=["txt", "md", "csv", "json", "py", "log", "html"],
+        key="main_uploader",
+    )
+    if uploaded_main is not None:
+        (UPLOAD_DIR / uploaded_main.name).write_bytes(uploaded_main.getvalue())
+        (WORKSPACE / uploaded_main.name).write_bytes(uploaded_main.getvalue())
+        st.success(f"Uploaded: `{uploaded_main.name}`")
+    if GEMINI_API_KEY:
+        st.success(f"API key loaded · model: `{st.session_state.get('model_name', GEMINI_MODELS[0])}`")
+    else:
+        st.warning("No API key. On Streamlit Cloud add GOOGLE_API_KEY in **Manage app → Settings → Secrets**.")
 
 with st.expander("💡 Example compound queries (click to try)", expanded=False):
     examples = [
@@ -613,7 +668,7 @@ if query:
 
         with st.spinner("Agent is thinking & using tools (Gemini)…"):
             try:
-                agent = build_agent(model_name)
+                agent = build_agent(st.session_state.model_name)
                 outcome = run_agent(agent, query)
 
                 answer = outcome["final_answer"] or "I completed the task but produced no textual answer."
@@ -643,3 +698,4 @@ st.markdown(
 """,
     unsafe_allow_html=True,
 )
+
