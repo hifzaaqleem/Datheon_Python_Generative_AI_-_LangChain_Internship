@@ -193,10 +193,20 @@ st.markdown(
 # ---------------------------------------------------------------------------
 # Paths & Gemini key (from .env only — never asked in UI)
 # ---------------------------------------------------------------------------
-WORKSPACE = Path("/home/workdir/artifacts/agent_workspace")
-WORKSPACE.mkdir(parents=True, exist_ok=True)
-UPLOAD_DIR = Path("/tmp/agent_uploads")
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+# Relative to this script so it works locally AND on Streamlit Cloud
+_BASE_DIR = Path(__file__).resolve().parent
+WORKSPACE = _BASE_DIR / "agent_workspace"
+UPLOAD_DIR = _BASE_DIR / "agent_uploads"
+try:
+    WORKSPACE.mkdir(parents=True, exist_ok=True)
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+except OSError:
+    # Fallback if filesystem is read-only (rare on some hosts)
+    import tempfile
+    WORKSPACE = Path(tempfile.gettempdir()) / "agent_workspace"
+    UPLOAD_DIR = Path(tempfile.gettempdir()) / "agent_uploads"
+    WORKSPACE.mkdir(parents=True, exist_ok=True)
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # Support both common env var names for Google AI Studio key
 GEMINI_API_KEY = (
@@ -208,8 +218,11 @@ GEMINI_API_KEY = (
 
 # Free-tier friendly Gemini models
 GEMINI_MODELS = [
-    "gemini-3.5-flash-lite",
-    "gemini-3.6-flash"
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-1.5-flash",
+    "gemini-1.5-flash-8b",
+    "gemini-2.5-flash",
 ]
 
 # ---------------------------------------------------------------------------
@@ -315,7 +328,7 @@ TOOLS = [web_search, python_calculator, read_local_file]
 # ---------------------------------------------------------------------------
 # Agent factory — Google Gemini only
 # ---------------------------------------------------------------------------
-def build_agent(model_name: str = "gemini-3.5-flash-lite"):
+def build_agent(model_name: str = "gemini-2.0-flash"):
     """Create a LangChain tool-calling agent powered by Gemini."""
     from langchain_google_genai import ChatGoogleGenerativeAI
     from langchain.agents import create_agent
@@ -453,7 +466,7 @@ with st.sidebar:
         "Gemini Model (free tier)",
         options=GEMINI_MODELS,
         index=0,
-        help="gemini-3.5-flash-lite is fast and works well on the free tier.",
+        help="gemini-2.0-flash is fast and works well on the free tier.",
     )
 
     st.markdown("---")
