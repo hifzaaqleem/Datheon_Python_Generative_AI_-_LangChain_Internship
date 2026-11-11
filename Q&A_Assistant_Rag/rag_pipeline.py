@@ -59,6 +59,7 @@ class RAGConfig:
     embedding_model: str | None = None
     llm: str = "ollama"                       # ollama | gemini | extractive (no LLM)
     llm_model: str | None = None
+    ollama_url: str | None = None            # e.g. http://127.0.0.1:11434 (default: Ollama default)
     min_chunk_chars: int = 15
     batch_size: int = 500                     # Chroma rejects very large single add() calls
 
@@ -119,7 +120,8 @@ def build_llm(cfg: RAGConfig):
                                        google_api_key=os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY"))
     else:
         from langchain_ollama import ChatOllama
-        model = ChatOllama(model=cfg.llm_model or "llama3.2", temperature=0)
+        kwargs = {"base_url": cfg.ollama_url} if cfg.ollama_url else {}
+        model = ChatOllama(model=cfg.llm_model or "llama3.2", temperature=0, **kwargs)
 
     def call(system: str, user: str) -> str:
         content = model.invoke([("system", system), ("human", user)]).content
@@ -248,7 +250,12 @@ class RAGPipeline:
             try:
                 text = self._llm(core.SYSTEM_PROMPT, core.build_user_prompt(q, kept))
             except Exception as e:
-                raise RAGError(f"LLM call failed: {type(e).__name__}: {e}") from e
+                hint = ""
+                if self.cfg.llm == "ollama" and ("refused" in str(e).lower() or "connect" in type(e).__name__.lower()):
+                    hint = (f" -> cannot reach Ollama at {self.cfg.ollama_url or 'the default address (127.0.0.1:11434)'}. "
+                            "Is `ollama serve` running on the SAME machine/environment as this app (not Windows vs WSL/Docker)? "
+                            "Set the 'Ollama server URL' in the sidebar if it runs elsewhere.")
+                raise RAGError(f"LLM call failed: {type(e).__name__}: {e}{hint}") from e
             used = core.parse_used_sources(text, len(kept))
             if not used and not core.is_refusal(text):
                 used = list(range(len(kept)))   # model forgot tags: cite everything it was shown
@@ -279,6 +286,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--embeddings", default="huggingface", choices=list(DEFAULT_THRESHOLDS))
     ap.add_argument("--llm", default="ollama", choices=["ollama", "gemini", "extractive"])
     ap.add_argument("--llm-model"); ap.add_argument("--embedding-model")
+    ap.add_argument("--ollama-url", default=None, help="e.g. http://127.0.0.1:11434")
     ap.add_argument("--chunk-size", type=int, default=800)
     ap.add_argument("--chunk-overlap", type=int, default=120)
     ap.add_argument("--top-k", type=int, default=4)
@@ -290,7 +298,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         cfg = RAGConfig(db_dir=a.db_dir, chunk_size=a.chunk_size, chunk_overlap=a.chunk_overlap, top_k=a.top_k,
                         score_threshold=a.threshold, embeddings=a.embeddings, embedding_model=a.embedding_model,
-                        llm=a.llm, llm_model=a.llm_model)
+                        llm=a.llm, llm_model=a.llm_model, ollama_url=a.ollama_url)
         rag = RAGPipeline(cfg)
         if a.docs:
             rep = rag.ingest(a.docs, reset=a.reset)
