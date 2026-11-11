@@ -112,6 +112,8 @@ if llm == "gemini":
                                   help="Model IDs change over time. Pick 'Other' to type a newer one.")
     llm_model = st.sidebar.text_input("Custom Gemini model ID", placeholder="gemini-...") if choice == CUSTOM else choice
 elif llm == "ollama":
+    st.sidebar.info("Ollama only works when this app runs on the same computer as Ollama. "
+                    "If the app is hosted online (e.g. Streamlit Cloud), use Gemini instead.")
     llm_model = st.sidebar.text_input("Ollama model name", value="llama3.2",
                                       help="Must appear in `ollama list`.")
     ollama_url = st.sidebar.text_input("Ollama server URL", value="http://127.0.0.1:11434",
@@ -140,13 +142,23 @@ elif llm == "ollama":
         if working and working != ollama_url.rstrip("/"):
             st.sidebar.info(f"Put this in 'Ollama server URL': {working}")
 
-# The API key is read only from the .env file / environment; it is never shown or typed in the UI.
+# The API key is never typed in the UI. Sources: .env file / environment variable, or Streamlit secrets (hosted).
+def _secret(name: str) -> str:
+    try:
+        return str(st.secrets.get(name, "") or "")
+    except Exception:  # no secrets file configured
+        return ""
+
+
 key = ""
 if llm == "gemini":
-    key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or ""
-    if not key:
-        st.sidebar.warning("No Gemini key found. Add GOOGLE_API_KEY=... to the .env file next to app.py "
-                           "and restart the app.")
+    key = (os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+           or _secret("GOOGLE_API_KEY") or _secret("GEMINI_API_KEY"))
+    if key:
+        os.environ["GOOGLE_API_KEY"] = key
+    else:
+        st.sidebar.warning("No Gemini key found. Locally: add GOOGLE_API_KEY=... to the .env file and restart. "
+                           "Hosted on Streamlit Cloud: App settings -> Secrets -> GOOGLE_API_KEY = \"...\".")
 
 embeddings = st.sidebar.selectbox("Embeddings", ["huggingface", "hash"],
                                   help="huggingface = free, local, no key. hash = offline test only.")
