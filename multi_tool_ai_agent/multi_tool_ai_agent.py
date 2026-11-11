@@ -516,6 +516,10 @@ with st.sidebar:
         help="Default: gemini-3.5-flash-lite (fast). gemini-3.6-flash is stronger.",
     )
 
+    if st.button("🗑️ Clear chat", use_container_width=True, key="clear_chat_btn"):
+        st.session_state.messages = []
+        st.rerun()
+
     st.markdown("---")
     st.markdown('<div class="sidebar-header">🛠️ Available Tools</div>', unsafe_allow_html=True)
 
@@ -681,4 +685,3 @@ st.markdown(
 """,
     unsafe_allow_html=True,
 )
-
