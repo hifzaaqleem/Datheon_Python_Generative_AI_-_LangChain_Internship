@@ -13,6 +13,4 @@ python-dotenv>=1.0     # reads API keys from a .env file
 # Embeddings (free, local) / LLM (install what you use):
 langchain-huggingface>=0.1     # default embeddings (all-MiniLM-L6-v2, runs locally)
 sentence-transformers>=3.0
-# Free LLM options (install the one you use):
-langchain-ollama>=0.2          # --llm ollama  (local, free, needs Ollama installed)
-langchain-google-genai>=2.0  # --llm gemini  (free API key, GOOGLE_API_KEY)
+# langchain-google-genai>=2.0  # --llm gemini  (free API key, GOOGLE_API_KEY)
