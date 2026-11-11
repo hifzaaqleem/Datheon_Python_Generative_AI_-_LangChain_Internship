@@ -40,33 +40,39 @@ st.markdown(
     }
 
     .main-title {
-        font-size: 2.2rem;
+        font-size: 1.85rem;
         font-weight: 700;
-        margin-bottom: 0.35rem;
-        letter-spacing: -0.4px;
+        margin-bottom: 0.4rem;
+        letter-spacing: -0.3px;
         display: flex;
         align-items: center;
-        gap: 0.55rem;
+        gap: 0.75rem;
+        color: #f8fafc;
+        line-height: 1.25;
     }
-    /* Emoji kept outside gradient so it stays fully visible */
     .main-title .emoji {
-        font-size: 2.35rem;
+        font-size: 2.5rem;
         line-height: 1;
-        color: initial;
-        -webkit-text-fill-color: initial;
-        filter: drop-shadow(0 2px 8px rgba(56, 189, 248, 0.4));
+        display: inline-block;
+        flex-shrink: 0;
+        /* solid rendering — no gradient / no transparency */
+        color: #fff;
+        -webkit-text-fill-color: #fff;
+        filter: none;
+        text-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
     }
     .main-title .title-text {
-        background: linear-gradient(90deg, #38bdf8, #a78bfa, #e879f9);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
+        color: #f8fafc;
+        -webkit-text-fill-color: #f8fafc;
+        background: none;
+        font-weight: 700;
     }
     .subtitle {
         color: #94a3b8;
-        font-size: 1.05rem;
+        font-size: 1rem;
         margin-bottom: 1.5rem;
         margin-left: 0.15rem;
+        line-height: 1.45;
     }
 
     .tool-card {
@@ -216,13 +222,10 @@ GEMINI_API_KEY = (
     or ""
 ).strip()
 
-# Free-tier friendly Gemini models
+# Only these two models
 GEMINI_MODELS = [
-    "gemini-2.0-flash",
-    "gemini-2.0-flash-lite",
-    "gemini-1.5-flash",
-    "gemini-1.5-flash-8b",
-    "gemini-2.5-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-3.6-flash",
 ]
 
 # ---------------------------------------------------------------------------
@@ -328,7 +331,7 @@ TOOLS = [web_search, python_calculator, read_local_file]
 # ---------------------------------------------------------------------------
 # Agent factory — Google Gemini only
 # ---------------------------------------------------------------------------
-def build_agent(model_name: str = "gemini-2.0-flash"):
+def build_agent(model_name: str = "gemini-3.5-flash-lite"):
     """Create a LangChain tool-calling agent powered by Gemini."""
     from langchain_google_genai import ChatGoogleGenerativeAI
     from langchain.agents import create_agent
@@ -463,10 +466,10 @@ with st.sidebar:
     st.markdown('<div class="sidebar-header">⚙️ Configuration</div>', unsafe_allow_html=True)
 
     model_name = st.selectbox(
-        "Gemini Model (free tier)",
+        "Gemini Model",
         options=GEMINI_MODELS,
-        index=0,
-        help="gemini-2.0-flash is fast and works well on the free tier.",
+        index=0,  # default: gemini-3.5-flash-lite
+        help="Default: gemini-3.5-flash-lite (fast). gemini-3.6-flash is stronger.",
     )
 
     st.markdown("---")
@@ -530,11 +533,16 @@ with st.sidebar:
 # Main area
 # ---------------------------------------------------------------------------
 st.markdown(
-    '<h1 class="main-title"><span class="emoji">🤖</span><span class="title-text">Multi-Tool Autonomous Agent</span></h1>',
+    '''
+    <h1 class="main-title">
+        <span class="emoji">🤖</span>
+        <span class="title-text">Multi-Tool Autonomous Agent</span>
+    </h1>
+    ''',
     unsafe_allow_html=True,
 )
 st.markdown(
-    '<p class="subtitle">Autonomous agent that reasons, chooses tools, and solves compound research & calculation queries. Powered by free Gemini.</p>',
+    '<p class="subtitle">Reasons, picks tools, and solves research &amp; calculation queries. Powered by Gemini.</p>',
     unsafe_allow_html=True,
 )
 
