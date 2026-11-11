@@ -12,7 +12,7 @@ below is the same idea, explicit and version-stable.
 Usage:
   python rag_pipeline.py --docs synthetic_data --embeddings hash --llm extractive --reset \
          --question "How many days of annual leave do employees get?"
-  python rag_pipeline.py --docs ./my_pdfs --embeddings huggingface --llm ollama      # interactive
+  python rag_pipeline.py --docs ./my_pdfs --embeddings huggingface --llm gemini      # interactive
 """
 from __future__ import annotations
 
@@ -57,16 +57,15 @@ class RAGConfig:
     score_threshold: float | None = None      # None -> default for the embedding provider
     embeddings: str = "huggingface"           # huggingface | hash (offline test only)
     embedding_model: str | None = None
-    llm: str = "ollama"                       # ollama | gemini | extractive (no LLM)
+    llm: str = "gemini"                       # gemini | extractive (no LLM)
     llm_model: str | None = None
-    ollama_url: str | None = None            # e.g. http://127.0.0.1:11434 (default: Ollama default)
     min_chunk_chars: int = 15
     batch_size: int = 500                     # Chroma rejects very large single add() calls
 
     def __post_init__(self):
         if self.embeddings not in DEFAULT_THRESHOLDS:
             raise ValueError(f"Unknown embeddings provider '{self.embeddings}'")
-        if self.llm not in ("ollama", "gemini", "extractive"):
+        if self.llm not in ("gemini", "extractive"):
             raise ValueError(f"Unknown llm provider '{self.llm}'")
         if self.score_threshold is None:
             self.score_threshold = DEFAULT_THRESHOLDS[self.embeddings]
@@ -107,15 +106,6 @@ def build_embeddings(cfg: RAGConfig) -> tuple[Embeddings, str]:
     return emb, model
 
 
-def _bypass_proxy_for_localhost() -> None:
-    """A system HTTP(S)_PROXY setting can swallow requests to 127.0.0.1 and look like 'connection refused'."""
-    local = "127.0.0.1,localhost,::1"
-    for var in ("NO_PROXY", "no_proxy"):
-        cur = os.environ.get(var, "")
-        if "127.0.0.1" not in cur:
-            os.environ[var] = f"{cur},{local}" if cur else local
-
-
 def build_llm(cfg: RAGConfig):
     """Returns a callable (system, user) -> str, or None for extractive mode."""
     if cfg.llm == "extractive":
@@ -127,11 +117,6 @@ def build_llm(cfg: RAGConfig):
         # Gemini 3.5+ rejects/ignores custom sampling params, so temperature is deliberately not set.
         model = ChatGoogleGenerativeAI(model=cfg.llm_model or "gemini-3.5-flash-lite",
                                        google_api_key=os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY"))
-    else:
-        from langchain_ollama import ChatOllama
-        _bypass_proxy_for_localhost()
-        kwargs = {"base_url": cfg.ollama_url} if cfg.ollama_url else {}
-        model = ChatOllama(model=cfg.llm_model or "llama3.2", temperature=0, **kwargs)
 
     def call(system: str, user: str) -> str:
         content = model.invoke([("system", system), ("human", user)]).content
@@ -260,12 +245,7 @@ class RAGPipeline:
             try:
                 text = self._llm(core.SYSTEM_PROMPT, core.build_user_prompt(q, kept))
             except Exception as e:
-                hint = ""
-                if self.cfg.llm == "ollama" and ("refused" in str(e).lower() or "connect" in type(e).__name__.lower()):
-                    hint = (f" -> cannot reach Ollama at {self.cfg.ollama_url or 'the default address (127.0.0.1:11434)'}. "
-                            "Is `ollama serve` running on the SAME machine/environment as this app (not Windows vs WSL/Docker)? "
-                            "Set the 'Ollama server URL' in the sidebar if it runs elsewhere.")
-                raise RAGError(f"LLM call failed: {type(e).__name__}: {e}{hint}") from e
+                raise RAGError(f"LLM call failed: {type(e).__name__}: {e}") from e
             used = core.parse_used_sources(text, len(kept))
             if not used and not core.is_refusal(text):
                 used = list(range(len(kept)))   # model forgot tags: cite everything it was shown
@@ -294,9 +274,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--db-dir", default="./chroma_db")
     ap.add_argument("--reset", action="store_true", help="wipe the vector store before ingesting")
     ap.add_argument("--embeddings", default="huggingface", choices=list(DEFAULT_THRESHOLDS))
-    ap.add_argument("--llm", default="ollama", choices=["ollama", "gemini", "extractive"])
+    ap.add_argument("--llm", default="gemini", choices=["gemini", "extractive"])
     ap.add_argument("--llm-model"); ap.add_argument("--embedding-model")
-    ap.add_argument("--ollama-url", default=None, help="e.g. http://127.0.0.1:11434")
     ap.add_argument("--chunk-size", type=int, default=800)
     ap.add_argument("--chunk-overlap", type=int, default=120)
     ap.add_argument("--top-k", type=int, default=4)
@@ -308,7 +287,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         cfg = RAGConfig(db_dir=a.db_dir, chunk_size=a.chunk_size, chunk_overlap=a.chunk_overlap, top_k=a.top_k,
                         score_threshold=a.threshold, embeddings=a.embeddings, embedding_model=a.embedding_model,
-                        llm=a.llm, llm_model=a.llm_model, ollama_url=a.ollama_url)
+                        llm=a.llm, llm_model=a.llm_model)
         rag = RAGPipeline(cfg)
         if a.docs:
             rep = rag.ingest(a.docs, reset=a.reset)
