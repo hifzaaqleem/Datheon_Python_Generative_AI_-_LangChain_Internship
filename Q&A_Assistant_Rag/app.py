@@ -116,6 +116,29 @@ elif llm == "ollama":
                                       help="Must appear in `ollama list`.")
     ollama_url = st.sidebar.text_input("Ollama server URL", value="http://127.0.0.1:11434",
                                        help="Must be reachable from where this app runs. Test it in a browser.").strip()
+    if st.sidebar.button("🔌 Test Ollama connection", use_container_width=True):
+        import platform
+        import sys
+
+        import httpx
+        st.sidebar.caption(f"App runs on: {platform.system()} · {sys.executable}")
+        st.sidebar.caption(f"OLLAMA_HOST: {os.getenv('OLLAMA_HOST') or '(not set)'} · proxy vars: "
+                           f"{[k for k in ('HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY') if os.getenv(k) or os.getenv(k.lower())] or 'none'}")
+        seen, working = set(), None
+        for u in [ollama_url, "http://127.0.0.1:11434", "http://localhost:11434", "http://[::1]:11434"]:
+            u = (u or "").rstrip("/")
+            if not u or u in seen:
+                continue
+            seen.add(u)
+            try:
+                r = httpx.get(u + "/api/tags", timeout=4, trust_env=False)
+                names = [m.get("name") for m in r.json().get("models", [])]
+                st.sidebar.success(f"✅ {u}\nmodels: {', '.join(names) or 'none pulled'}")
+                working = working or u
+            except Exception as e:
+                st.sidebar.error(f"❌ {u}\n{type(e).__name__}: {e}")
+        if working and working != ollama_url.rstrip("/"):
+            st.sidebar.info(f"Put this in 'Ollama server URL': {working}")
 
 # The API key is read only from the .env file / environment; it is never shown or typed in the UI.
 key = ""
@@ -138,11 +161,12 @@ with st.sidebar.expander("Advanced"):
 try:
     rag = get_pipeline(embeddings, None, llm, llm_model.strip(), int(chunk_size), int(overlap),
                        int(top_k), float(threshold), bool(key), ollama_url)
-except (RAGError, ValueError) as e:
-    st.error(f"Setup problem: {e}")
-    st.stop()
-except Exception as e:  # missing optional package, etc.
-    st.error(f"Could not start the pipeline: {type(e).__name__}: {e}")
+except Exception as e:
+    # compare by name: Streamlit hot-reloads modules, so the RAGError class can differ between reloads
+    if isinstance(e, ValueError) or type(e).__name__ == "RAGError":
+        st.error(f"Setup problem: {e}")
+    else:  # missing optional package, etc.
+        st.error(f"Could not start the pipeline: {type(e).__name__}: {e}")
     st.stop()
 
 # ----------------------------------------------------------------------------- sidebar: documents
@@ -296,9 +320,10 @@ if question:
                               for c in ans.chunks],
                    "used": [{"source": c.source, "page": c.page, "score": c.score, "text": c.text}
                             for c in ans.used]}
-        except (ValueError, RAGError) as e:
-            msg = {"role": "assistant", "content": f"⚠️ {e}"}
         except Exception as e:
-            msg = {"role": "assistant", "content": f"⚠️ Unexpected error: {type(e).__name__}: {e}"}
+            if isinstance(e, ValueError) or type(e).__name__ == "RAGError":
+                msg = {"role": "assistant", "content": f"⚠️ {e}"}
+            else:
+                msg = {"role": "assistant", "content": f"⚠️ Unexpected error: {type(e).__name__}: {e}"}
         render(msg)
     st.session_state.messages.append(msg)
