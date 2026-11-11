@@ -1,3 +1,4 @@
+
 """
 Multi-Tool Autonomous AI Agent
 LangChain Agent + Streamlit Dashboard
@@ -51,17 +52,23 @@ st.markdown(
         line-height: 1.25;
     }
     .main-title .emoji {
-        font-size: 2.5rem;
+        font-size: 2.4rem;
         line-height: 1;
         display: inline-block;
         flex-shrink: 0;
-        /* solid rendering — no gradient / no transparency */
-        color: #fff;
-        -webkit-text-fill-color: #fff;
-        filter: none;
-        text-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
+        /* Use system emoji fonts — Inter has no robot glyph and shows a broken face */
+        font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji",
+                     "Android Emoji", "EmojiOne Color", "Twemoji Mozilla", sans-serif !important;
+        font-style: normal;
+        font-weight: normal;
+        color: initial !important;
+        -webkit-text-fill-color: initial !important;
+        background: none !important;
+        filter: none !important;
+        text-shadow: none !important;
     }
     .main-title .title-text {
+        font-family: 'Inter', sans-serif;
         color: #f8fafc;
         -webkit-text-fill-color: #f8fafc;
         background: none;
