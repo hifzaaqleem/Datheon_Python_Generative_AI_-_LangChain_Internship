@@ -107,6 +107,15 @@ def build_embeddings(cfg: RAGConfig) -> tuple[Embeddings, str]:
     return emb, model
 
 
+def _bypass_proxy_for_localhost() -> None:
+    """A system HTTP(S)_PROXY setting can swallow requests to 127.0.0.1 and look like 'connection refused'."""
+    local = "127.0.0.1,localhost,::1"
+    for var in ("NO_PROXY", "no_proxy"):
+        cur = os.environ.get(var, "")
+        if "127.0.0.1" not in cur:
+            os.environ[var] = f"{cur},{local}" if cur else local
+
+
 def build_llm(cfg: RAGConfig):
     """Returns a callable (system, user) -> str, or None for extractive mode."""
     if cfg.llm == "extractive":
@@ -120,6 +129,7 @@ def build_llm(cfg: RAGConfig):
                                        google_api_key=os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY"))
     else:
         from langchain_ollama import ChatOllama
+        _bypass_proxy_for_localhost()
         kwargs = {"base_url": cfg.ollama_url} if cfg.ollama_url else {}
         model = ChatOllama(model=cfg.llm_model or "llama3.2", temperature=0, **kwargs)
 
