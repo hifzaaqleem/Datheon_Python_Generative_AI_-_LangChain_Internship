@@ -10,15 +10,14 @@ from pathlib import Path
 
 import streamlit as st
 
-from rag_core import NOT_FOUND
-from rag_pipeline import DEFAULT_THRESHOLDS, RAGConfig, RAGError, RAGPipeline
-
 try:  # load API keys from a .env file next to this script (optional dependency: python-dotenv)
     from dotenv import load_dotenv
     load_dotenv(Path(__file__).resolve().parent / ".env")
 except ImportError:
     pass
 
+from rag_core import NOT_FOUND
+from rag_pipeline import DEFAULT_THRESHOLDS, RAGConfig, RAGError, RAGPipeline
 
 UPLOAD_DIR = Path("uploads")
 SAMPLE_DIR = Path("synthetic_data")
@@ -89,10 +88,11 @@ st.markdown(
 
 # ----------------------------------------------------------------------------- pipeline cache
 @st.cache_resource(show_spinner="Loading models (first run downloads the embedding model)...")
-def get_pipeline(embeddings, embedding_model, llm, llm_model, chunk_size, overlap, top_k, threshold, _key_id):
+def get_pipeline(embeddings, embedding_model, llm, llm_model, chunk_size, overlap, top_k, threshold, _key_id,
+                 ollama_url=None):
     cfg = RAGConfig(db_dir=DB_DIR, chunk_size=chunk_size, chunk_overlap=overlap, top_k=top_k,
                     score_threshold=threshold, embeddings=embeddings, embedding_model=embedding_model or None,
-                    llm=llm, llm_model=llm_model or None)
+                    llm=llm, llm_model=llm_model or None, ollama_url=ollama_url or None)
     return RAGPipeline(cfg)
 
 
@@ -104,10 +104,15 @@ llm = st.sidebar.selectbox("Answer model (LLM)", ["extractive", "ollama", "gemin
                            help="extractive = no model, returns matching sentences. ollama = free, local.")
 llm_model = st.sidebar.text_input("Model name (optional)", placeholder="e.g. llama3.2")
 
+ollama_url = None
+if llm == "ollama":
+    ollama_url = st.sidebar.text_input("Ollama server URL", value="http://127.0.0.1:11434",
+                                       help="Must be reachable from where this app runs. Test it in a browser.").strip()
 key_env = {"gemini": "GOOGLE_API_KEY"}.get(llm)
 key = ""
 if key_env:
-    key = st.sidebar.text_input(key_env, type="password", value=os.getenv(key_env, ""))
+    key = st.sidebar.text_input(key_env, type="password",
+                                value=os.getenv(key_env) or os.getenv("GEMINI_API_KEY", ""))
     if key:
         os.environ[key_env] = key
 
@@ -123,7 +128,7 @@ with st.sidebar.expander("Advanced"):
 
 try:
     rag = get_pipeline(embeddings, None, llm, llm_model.strip(), int(chunk_size), int(overlap),
-                       int(top_k), float(threshold), bool(key))
+                       int(top_k), float(threshold), bool(key), ollama_url)
 except (RAGError, ValueError) as e:
     st.error(f"Setup problem: {e}")
     st.stop()
