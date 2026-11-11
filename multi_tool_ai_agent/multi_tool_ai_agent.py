@@ -393,11 +393,12 @@ def build_agent(model_name: str = "gemini-3.5-flash-lite"):
 You have access to three tools:
 1. web_search – real-time web search via DuckDuckGo
 2. python_calculator – safe math & simple Python expression evaluation
-3. read_local_file – read text files from the local workspace
+3. read_local_file – read text files from the local workspace / uploads
 
 When solving compound questions:
 - Think step by step.
 - Choose the right tool(s) and use them when needed.
+- If the user asks about a document, PDF text, notes, or anything uploaded: ALWAYS call read_local_file with the exact filename first.
 - You may call multiple tools in sequence.
 - After gathering information, give a clear final answer.
 - Cite sources when using web search (titles + URLs).
@@ -551,7 +552,11 @@ with st.sidebar:
         save_path = UPLOAD_DIR / uploaded.name
         save_path.write_bytes(uploaded.getvalue())
         (WORKSPACE / uploaded.name).write_bytes(uploaded.getvalue())
-        st.success(f"Uploaded: `{uploaded.name}`")
+        if "uploaded_files" not in st.session_state:
+            st.session_state.uploaded_files = []
+        if uploaded.name not in st.session_state.uploaded_files:
+            st.session_state.uploaded_files.append(uploaded.name)
+        st.success(f"Uploaded: `{uploaded.name}` — ask a question about this file in the chat.")
 
     files = list(WORKSPACE.glob("*")) + list(UPLOAD_DIR.glob("*"))
     unique_names = sorted({f.name for f in files if f.is_file()})
@@ -653,10 +658,49 @@ if query:
     else:
         st.session_state.messages.append({"role": "user", "content": query})
 
+        # Attach uploaded-file context so the agent actually uses the document
+        agent_query = query
+        available = []
+        for d in (WORKSPACE, UPLOAD_DIR):
+            if d.exists():
+                available.extend([p.name for p in d.iterdir() if p.is_file()])
+        available = sorted(set(available))
+        if available:
+            # Prefer exact filenames the user uploaded this session
+            session_files = st.session_state.get("uploaded_files") or available
+            file_hint = ", ".join(session_files[:20])
+            # For small text files, inject content so answers work without relying on tool call
+            attached = []
+            for fname in session_files[:5]:
+                for folder in (WORKSPACE, UPLOAD_DIR):
+                    fpath = folder / fname
+                    if fpath.is_file() and fpath.suffix.lower() in {
+                        ".txt", ".md", ".csv", ".json", ".py", ".log", ".html",
+                    }:
+                        try:
+                            text = fpath.read_text(encoding="utf-8", errors="replace")
+                            if len(text) <= 12000:
+                                attached.append(f"----- FILE: {fname} -----\n{text}\n")
+                        except Exception:
+                            pass
+                        break
+            if attached:
+                agent_query = (
+                    f"{query}\n\n"
+                    f"[System: The user uploaded these files. Use this content to answer.]\n"
+                    + "\n".join(attached)
+                )
+            else:
+                agent_query = (
+                    f"{query}\n\n"
+                    f"[System: Uploaded files available: {file_hint}. "
+                    f"You MUST call read_local_file with the exact filename to read them.]"
+                )
+
         with st.spinner("Agent is thinking & using tools (Gemini)…"):
             try:
                 agent = build_agent(st.session_state.model_name)
-                outcome = run_agent(agent, query)
+                outcome = run_agent(agent, agent_query)
 
                 answer = outcome["final_answer"] or "I completed the task but produced no textual answer."
                 steps = outcome["steps"]
