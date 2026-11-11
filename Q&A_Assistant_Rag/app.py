@@ -102,19 +102,28 @@ st.sidebar.caption("Ask questions. Get answers with page citations.")
 st.sidebar.markdown("### ⚙️ Model")
 llm = st.sidebar.selectbox("Answer model (LLM)", ["extractive", "ollama", "gemini"],
                            help="extractive = no model, returns matching sentences. ollama = free, local.")
-llm_model = st.sidebar.text_input("Model name (optional)", placeholder="e.g. llama3.2")
+GEMINI_MODELS = ["gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-3.8-flash"]
+CUSTOM = "Other (type a name)…"
 
+llm_model = ""
 ollama_url = None
-if llm == "ollama":
+if llm == "gemini":
+    choice = st.sidebar.selectbox("Gemini model", GEMINI_MODELS + [CUSTOM],
+                                  help="Model IDs change over time. Pick 'Other' to type a newer one.")
+    llm_model = st.sidebar.text_input("Custom Gemini model ID", placeholder="gemini-...") if choice == CUSTOM else choice
+elif llm == "ollama":
+    llm_model = st.sidebar.text_input("Ollama model name", value="llama3.2",
+                                      help="Must appear in `ollama list`.")
     ollama_url = st.sidebar.text_input("Ollama server URL", value="http://127.0.0.1:11434",
                                        help="Must be reachable from where this app runs. Test it in a browser.").strip()
-key_env = {"gemini": "GOOGLE_API_KEY"}.get(llm)
+
+# The API key is read only from the .env file / environment; it is never shown or typed in the UI.
 key = ""
-if key_env:
-    key = st.sidebar.text_input(key_env, type="password",
-                                value=os.getenv(key_env) or os.getenv("GEMINI_API_KEY", ""))
-    if key:
-        os.environ[key_env] = key
+if llm == "gemini":
+    key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or ""
+    if not key:
+        st.sidebar.warning("No Gemini key found. Add GOOGLE_API_KEY=... to the .env file next to app.py "
+                           "and restart the app.")
 
 embeddings = st.sidebar.selectbox("Embeddings", ["huggingface", "hash"],
                                   help="huggingface = free, local, no key. hash = offline test only.")
