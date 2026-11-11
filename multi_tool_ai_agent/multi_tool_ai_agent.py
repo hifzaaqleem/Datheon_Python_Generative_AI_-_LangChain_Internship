@@ -508,8 +508,13 @@ if "model_name" not in st.session_state:
 
 with st.sidebar:
     st.markdown('<div class="sidebar-header">⚙️ Configuration</div>', unsafe_allow_html=True)
-    st.caption(f"Model: `{st.session_state.model_name}`")
-    st.caption("Change model in main page → Settings")
+
+    st.selectbox(
+        "Gemini Model",
+        options=GEMINI_MODELS,
+        key="model_name",
+        help="Default: gemini-3.5-flash-lite (fast). gemini-3.6-flash is stronger.",
+    )
 
     st.markdown("---")
     st.markdown('<div class="sidebar-header">🛠️ Available Tools</div>', unsafe_allow_html=True)
@@ -584,28 +589,6 @@ st.markdown(
     '<p class="subtitle">Reasons, picks tools, and solves research &amp; calculation queries. Powered by Gemini.</p>',
     unsafe_allow_html=True,
 )
-
-# Fallback controls in main area (always available if sidebar is hidden)
-with st.expander("⚙️ Settings (model & files) — open this if sidebar is missing", expanded=False):
-    st.selectbox(
-        "Gemini Model",
-        options=GEMINI_MODELS,
-        key="model_name",
-        help="Default: gemini-3.5-flash-lite",
-    )
-    uploaded_main = st.file_uploader(
-        "Upload a text file for the agent",
-        type=["txt", "md", "csv", "json", "py", "log", "html"],
-        key="main_uploader",
-    )
-    if uploaded_main is not None:
-        (UPLOAD_DIR / uploaded_main.name).write_bytes(uploaded_main.getvalue())
-        (WORKSPACE / uploaded_main.name).write_bytes(uploaded_main.getvalue())
-        st.success(f"Uploaded: `{uploaded_main.name}`")
-    if GEMINI_API_KEY:
-        st.success(f"API key loaded · model: `{st.session_state.get('model_name', GEMINI_MODELS[0])}`")
-    else:
-        st.warning("No API key. On Streamlit Cloud add GOOGLE_API_KEY in **Manage app → Settings → Secrets**.")
 
 with st.expander("💡 Example compound queries (click to try)", expanded=False):
     examples = [
