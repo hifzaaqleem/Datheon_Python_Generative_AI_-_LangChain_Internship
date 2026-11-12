@@ -7,6 +7,15 @@ This repository contains four hands-on projects developed as part of my internsh
 The projects demonstrate practical implementations of modern AI technologies, combining Python, LLM integrations, LangChain-based workflows, and application development.
 
 ---
+## STREAMLIT LINKS:
+
+https://datheonpythongenerativeai-langchaininternship-efskjoxn744gydzj.streamlit.app/
+
+https://hifzaaqleem-datheon-python-generativ-qa-assistant-ragapp-rkg2fr.streamlit.app/
+
+https://datheonpythongenerativeai-langchaininternship-fyz9qurmfzqd2mh2.streamlit.app/
+
+https://datheonpythongenerativeai-langchaininternship-fzfqey33pxxs8cuy.streamlit.app/
 
 ## 📂 Repository Contents
 
